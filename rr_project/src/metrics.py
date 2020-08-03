@@ -13,6 +13,7 @@ def precision(recommended_list, bought_list):
 
 
 def precision_at_k(recommended_list, bought_list, k=5):
+  
     bought_list = np.array(bought_list)
     recommended_list = np.array(recommended_list)
     
@@ -29,15 +30,7 @@ def precision_at_k(recommended_list, bought_list, k=5):
     return precision
 
 
-def money_precision_at_k(recommended_list, bought_list, prices_recommended, k=5):
-    """
-
-    @param recommended_list:
-    @param bought_list:
-    @param prices_recommended:
-    @param k:
-    @return:
-    """
+def money_precision_at_k(recommended_list, bought_list, prices_recommended, k=5) -> float:
     bought_list = np.array(bought_list)
     recommended_list = np.array(recommended_list)
     
@@ -81,7 +74,19 @@ def recall_at_k(recommended_list, bought_list, k=5):
     return recall
 
 
-def money_recall_at_k(recommended_list, bought_list, prices_recommended, prices_bought, k=5):
+def money_recall_at_k(recommended_list : list, bought_list : list, \
+                    prices_recommended : list, prices_bought : list, k:int = 5) -> float:
+    """Точность взвешенная на цену товара
+
+    Args:
+        recommended_list (list): Список рекомендаций
+        bought_list (list): Список реальных покупок
+        prices_bought (list): Цены реальных покупок
+        k (int, optional): Количество рекомендаций. Defaults to 5.
+
+    Returns:
+        float: Значение метрики точности 
+    """
     bought_list = np.array(bought_list)
     prices_bought = np.array(prices_bought)
     

@@ -77,8 +77,7 @@ class MainRecommender:
     @staticmethod
     def fit_own_recommender(user_item_matrix):
         """Обучает модель, которая рекомендует товары, среди товаров, купленных юзером"""
-
-        own_recommender = ItemItemRecommender(K=1, num_threads=4)
+        own_recommender = ItemItemRecommender(K=1)
         own_recommender.fit(csr_matrix(user_item_matrix).T.tocsr())
 
         return own_recommender
