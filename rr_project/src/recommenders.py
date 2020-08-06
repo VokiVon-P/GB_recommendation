@@ -6,6 +6,7 @@ from scipy.sparse import csr_matrix
 
 # Матричная факторизация
 from implicit.als import AlternatingLeastSquares
+from implicit.bpr import BayesianPersonalizedRanking
 from implicit.nearest_neighbours import ItemItemRecommender  # нужен для одного трюка
 from implicit.nearest_neighbours import bm25_weight, tfidf_weight
 
@@ -19,7 +20,7 @@ class MainRecommender:
         Матрица взаимодействий user-item
     """
 
-    def __init__(self, data, weighting=True):
+    def __init__(self, data, weighting=True, n_factors=20, regularization=0.001, iterations=15, num_threads=0):
 
         # Топ покупок каждого юзера
         self.top_purchases = data.groupby(['user_id', 'item_id'])['quantity'].count().reset_index()
@@ -39,17 +40,37 @@ class MainRecommender:
         if weighting:
             self.user_item_matrix = bm25_weight(self.user_item_matrix.T).T
 
-        self.model = self.fit(self.user_item_matrix)
+        print('start fit')
+        self.model = self.fit(self.user_item_matrix, n_factors, regularization, iterations, num_threads)
+        print('fit_own_recommender')
         self.own_recommender = self.fit_own_recommender(self.user_item_matrix)
 
     @staticmethod
     def _prepare_matrix(data):
         """Готовит user-item матрицу"""
+        # user_item_matrix = pd.pivot_table(data,
+        #                                   index='user_id', columns='item_id',
+        #                                 #   values='quantity',  # Можно пробовать другие варианты
+        #                                 #   aggfunc='count',
+        #                                   values=['sales_value', 'norm_svalue', 'log_q'],
+        #                                 #   values='norm_svalue',
+        #                                   aggfunc= {'sales_value':'sum',
+        #                                             'norm_svalue':'sum',
+        #                                             'log_q':'sum'},
+                                                    
+        #                                   fill_value={'sales_value':0,
+        #                                             'norm_svalue':0,
+        #                                             'log_q':0}
+        #                                   )
+
         user_item_matrix = pd.pivot_table(data,
                                           index='user_id', columns='item_id',
-                                          values='quantity',  # Можно пробовать другие варианты
-                                          aggfunc='count',
-                                          fill_value=0
+                                        #   values='quantity',  # Можно пробовать другие варианты
+                                        #   aggfunc='count',
+                                          values='std_svalue',
+                                        #   values='norm_svalue',
+                                          aggfunc= 'sum',
+                                          fill_value=0,
                                           )
 
         user_item_matrix = user_item_matrix.astype(float)  # необходимый тип матрицы для implicit
@@ -83,15 +104,19 @@ class MainRecommender:
         return own_recommender
 
     @staticmethod
-    def fit(user_item_matrix, n_factors=20, regularization=0.001, iterations=15, num_threads=4):
+    def fit(user_item_matrix, n_factors=20, regularization=0.001, iterations=15, num_threads=0):
         """Обучает ALS"""
 
-        model = AlternatingLeastSquares(factors=n_factors,
+        # model = AlternatingLeastSquares(factors=n_factors,
+        model = BayesianPersonalizedRanking(factors=n_factors,
                                         regularization=regularization,
                                         iterations=iterations,
-                                        num_threads=num_threads)
-        model.fit(csr_matrix(user_item_matrix).T.tocsr())
+                                        # calculate_training_loss=True, 
+                                        num_threads=num_threads,
+                                        )
 
+        model.fit(csr_matrix(user_item_matrix).T.tocsr(), show_progress=False)
+        print('LOG = 005')
         return model
 
     def _update_dict(self, user_id):
@@ -129,7 +154,8 @@ class MainRecommender:
                                         N=N,
                                         filter_already_liked_items=False,
                                         filter_items=[self.itemid_to_id[999999]],
-                                        recalculate_user=True)]
+                                        # recalculate_user=True
+                                        )]
 
         res = self._extend_with_top_popular(res, N=N)
 
@@ -170,7 +196,7 @@ class MainRecommender:
         similar_users = similar_users[1:]   # удалим юзера из запроса
 
         for user in similar_users:
-            res.extend(self.get_own_recommendations(user, N=1))
+            res.extend(self.get_own_recommendations(self.id_to_userid[user], N=1))
 
         res = self._extend_with_top_popular(res, N=N)
 

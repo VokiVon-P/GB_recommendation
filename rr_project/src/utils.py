@@ -1,8 +1,13 @@
 import pandas as pd
 import numpy as np
 
-
 def prefilter_items(data, take_n_popular=5000, item_features=None):
+
+    # Уберем товары сумма по которым за все время равна 0
+    svalue_items = data.groupby('item_id')['sales_value'].sum().reset_index()
+    zero_items = svalue_items[svalue_items['sales_value']==0]
+    data = data[~data['item_id'].isin(zero_items['item_id'])]
+
     # Уберем самые популярные товары (их и так купят)
     popularity = data.groupby('item_id')['user_id'].nunique().reset_index() / data['user_id'].nunique()
     popularity.rename(columns={'user_id': 'share_unique_users'}, inplace=True)
@@ -15,6 +20,9 @@ def prefilter_items(data, take_n_popular=5000, item_features=None):
     data = data[~data['item_id'].isin(top_notpopular)]
 
     # Уберем товары, которые не продавались за последние 12 месяцев
+    last_year_data = data[data['day'] >= data['day'].max() - 365]
+    last_year_data_items = last_year_data['item_id'].unique()
+    data = data[data['item_id'].isin(last_year_data_items)]
 
     # Уберем не интересные для рекоммендаций категории (department)
     if item_features is not None:
@@ -31,7 +39,7 @@ def prefilter_items(data, take_n_popular=5000, item_features=None):
 
     # Уберем слишком дешевые товары (на них не заработаем). 1 покупка из рассылок стоит 60 руб.
     data['price'] = data['sales_value'] / (np.maximum(data['quantity'], 1))
-    data = data[data['price'] > 2]
+    data = data[data['price'] > 1]
 
     # Уберем слишком дорогие товарыs
     data = data[data['price'] < 50]
